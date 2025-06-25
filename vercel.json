@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/ai/auto-generate-vercel",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/instagram/auto-post",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

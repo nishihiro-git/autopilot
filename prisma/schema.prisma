@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  instagramAccount InstagramAccount?
+  settings         Setting?
+  posts            Post[]
+  generatedPosts   GeneratedPost[]
+
+  @@map("User")
+}
+
+model InstagramAccount {
+  id                    Int      @id @default(autoincrement())
+  userId                Int      @unique
+  accessToken           String
+  instagramBusinessId   String?  // Instagram Business Account ID
+  facebookPageId        String?  // Facebook Page ID
+  instagramUsername     String?  // Instagram username
+  connectedAt           DateTime @default(now())
+  lastTokenRefresh      DateTime @default(now())
+  isActive              Boolean  @default(true)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("InstagramAccount")
+}
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  keywords  Json?    // Array of strings
+  design    String?  // Design instructions
+  content   String?  // Content instructions
+  schedule  Json?    // Schedule settings
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("Setting")
+}
+
+model Post {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  imageUrl    String?
+  caption     String?
+  scheduledFor DateTime?
+  postedAt    DateTime?
+  status      String    // "pending", "posted", "failed"
+  error       String?
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("Post")
+}
+
+model GeneratedPost {
+  id                 Int       @id @default(autoincrement())
+  userId             Int
+  keywords           Json      // Array of strings
+  info               String    // Generated information
+  imageUrl           String    // Generated image URL
+  imageAlt           String?   // Image alt text
+  imageSource        String    // Image source (unsplash, pexels, etc.)
+  imagePhotographer  String?   // Image photographer
+  caption            String    // Generated caption
+  targetTime         DateTime  // Scheduled posting time
+  status             String    // "GENERATED", "POSTED", "FAILED"
+  instagramPostId    String?   // Instagram投稿ID（投稿成功時）
+  postedAt           DateTime? // 実際の投稿時刻
+  error              String?   // エラーメッセージ
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("GeneratedPost")
+}
