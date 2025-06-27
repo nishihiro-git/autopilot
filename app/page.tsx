@@ -78,11 +78,6 @@ export default function HomePage() {
       setSaving(true);
       try {
         const updatedSettings = { ...settings, ...newSettings };
-
-        // デバッグログを追加
-        console.log("保存する設定:", updatedSettings);
-        console.log("新しく追加された設定:", newSettings);
-
         const response = await fetch("/api/settings", {
           method: "POST",
           headers: {
@@ -90,11 +85,9 @@ export default function HomePage() {
           },
           body: JSON.stringify(updatedSettings),
         });
-
         if (response.ok) {
           const result = await response.json();
           setSettings(updatedSettings);
-          console.log("設定保存成功:", result);
           toast({
             title: "保存完了",
             description: "設定を保存しました。",
@@ -105,7 +98,6 @@ export default function HomePage() {
           throw new Error(errorData.error || "保存に失敗しました");
         }
       } catch (error) {
-        console.error("設定保存エラー:", error);
         toast({
           title: "保存エラー",
           description: "設定の保存に失敗しました。",
@@ -221,7 +213,12 @@ export default function HomePage() {
               <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
                 <KeywordManager
                   initialKeywords={settings.keywords}
-                  onKeywordsChange={(keywords) => saveSettings({ keywords })}
+                  onKeywordsChange={async (keywords) => {
+                    const success = await saveSettings({ keywords });
+                    if (success) {
+                      setSettings((prev) => ({ ...prev, keywords }));
+                    }
+                  }}
                 />
                 <ContentInstructions
                   initialInstructions={settings.content}

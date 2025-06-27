@@ -1,14 +1,14 @@
 "use client";
 
 import type React from "react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { TagIcon, PlusIcon, XIcon, SparklesIcon, Loader2Icon } from "lucide-react";
 
 interface KeywordManagerProps {
   initialKeywords?: string[];
-  onKeywordsChange?: (keywords: string[]) => void;
+  onKeywordsChange?: (keywords: string[]) => void | Promise<void>;
 }
 
 export default function KeywordManager({ initialKeywords = [], onKeywordsChange }: KeywordManagerProps) {
@@ -17,31 +17,38 @@ export default function KeywordManager({ initialKeywords = [], onKeywordsChange 
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
-  const addKeyword = useCallback(() => {
+  // initialKeywordsが変更されたときに内部状態を同期
+  useEffect(() => {
+    setKeywords(initialKeywords);
+  }, [initialKeywords]);
+
+  const addKeyword = useCallback(async () => {
     if (newKeyword.trim() && !keywords.includes(newKeyword.trim())) {
       const updatedKeywords = [...keywords, newKeyword.trim()];
-      setKeywords(updatedKeywords);
-      setNewKeyword("");
       if (onKeywordsChange) {
-        onKeywordsChange(updatedKeywords);
+        await onKeywordsChange(updatedKeywords);
+      } else {
+        setKeywords(updatedKeywords);
       }
+      setNewKeyword("");
     }
   }, [newKeyword, keywords, onKeywordsChange]);
 
   const removeKeyword = useCallback(
-    (keywordToRemove: string) => {
+    async (keywordToRemove: string) => {
       const updatedKeywords = keywords.filter((keyword) => keyword !== keywordToRemove);
-      setKeywords(updatedKeywords);
       if (onKeywordsChange) {
-        onKeywordsChange(updatedKeywords);
+        await onKeywordsChange(updatedKeywords);
+      } else {
+        setKeywords(updatedKeywords);
       }
     },
     [keywords, onKeywordsChange]
   );
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      addKeyword();
+      await addKeyword();
     }
   };
 
@@ -124,7 +131,7 @@ export default function KeywordManager({ initialKeywords = [], onKeywordsChange 
             className="flex-grow text-base sm:text-lg py-2 sm:py-2.5 px-3 sm:px-4 bg-slate-900/80 border-slate-700 text-slate-50 placeholder:text-slate-500 focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 rounded-md transition-all duration-200"
           />
           <Button
-            onClick={addKeyword}
+            onClick={async () => await addKeyword()}
             disabled={!newKeyword.trim()}
             className="bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold py-2 sm:py-2.5 px-4 sm:px-5 text-sm sm:text-base rounded-md transition-transform duration-200 hover:scale-105 disabled:scale-100 disabled:opacity-50"
           >
@@ -143,7 +150,7 @@ export default function KeywordManager({ initialKeywords = [], onKeywordsChange 
               >
                 <span className="font-medium text-xs sm:text-sm">{keyword}</span>
                 <button
-                  onClick={() => removeKeyword(keyword)}
+                  onClick={async () => await removeKeyword(keyword)}
                   className="text-yellow-400 hover:text-red-400 transition-colors"
                   aria-label={`${keyword}を削除`}
                 >

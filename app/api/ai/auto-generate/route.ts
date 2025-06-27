@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { createApi } from "unsplash-js";
 import { createClient } from "pexels";
 import { PrismaClient } from "@prisma/client";
+import { sendPostConfirmationEmail } from "@/lib/email";
 
 const prisma = new PrismaClient();
 
@@ -72,17 +73,20 @@ export async function POST(request: NextRequest) {
     const settings = user.settings;
     const { keywords, design, content } = settings;
 
-    if (!keywords || keywords.length === 0) {
+    // keywordsの型を適切に処理
+    const keywordsArray = Array.isArray(keywords) ? keywords.filter((k): k is string => typeof k === "string") : [];
+
+    if (keywordsArray.length === 0) {
       return NextResponse.json({ error: "キーワードが設定されていません" }, { status: 400 });
     }
 
     // 投稿生成
-    const info = await generateInfo(keywords);
-    const image = await generateImage(keywords, design || "", info);
-    const caption = await generateCaption(keywords, content || "", info);
+    const info = await generateInfo(keywordsArray);
+    const image = await generateImage(keywordsArray, design || "", info);
+    const caption = await generateCaption(keywordsArray, content || "", info);
 
     const post = {
-      keywords,
+      keywords: keywordsArray,
       info,
       image,
       caption,
@@ -91,10 +95,10 @@ export async function POST(request: NextRequest) {
     };
 
     // 生成された投稿をデータベースに保存
-    await prisma.generatedPost.create({
+    const savedPost = await prisma.generatedPost.create({
       data: {
         userId: user.id,
-        keywords: keywords,
+        keywords: keywordsArray,
         info: info,
         imageUrl: image.url,
         imageAlt: image.alt,
@@ -106,17 +110,41 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // メール通知を送信
+    try {
+      const emailResult = await sendPostConfirmationEmail(userEmail, {
+        keywords: keywordsArray,
+        info,
+        imageUrl: image.url,
+        caption,
+        targetTime,
+        postId: savedPost.id,
+      });
+
+      if (emailResult.success) {
+        console.log(`メール通知送信成功: ${userEmail}`, { messageId: emailResult.messageId });
+      } else {
+        console.error(`メール通知送信失敗: ${userEmail}`, emailResult.error);
+      }
+    } catch (emailError) {
+      console.error(`メール通知エラー: ${userEmail}`, emailError);
+    }
+
     console.log(`自動投稿生成完了: ${userEmail}`, {
-      keywordsCount: keywords.length,
+      keywordsCount: keywordsArray.length,
       infoLength: info.length,
       imageUrl: image.url,
       captionLength: caption.length,
       targetTime,
+      postId: savedPost.id,
     });
 
     return NextResponse.json({
       success: true,
-      post,
+      post: {
+        ...post,
+        id: savedPost.id,
+      },
     });
   } catch (error) {
     console.error("自動投稿生成エラー:", error);
